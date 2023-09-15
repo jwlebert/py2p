@@ -25,7 +25,35 @@ class PeerConnection:
 	def __init__(self, socket: socket.socket, info: PeerInfo) -> None:
 		self.socket: socket.socket = socket
 		self.info: PeerInfo = info
+
+	def send(self, data, command = 'READ') -> bool:
+		pass
+
+	def recv(self) -> Tuple[str, str]:
+		pass
+
+	def __pack_data(self, data):
+		pass
+
+	def __unpack_data(self, data):
+		pass
+
+	def close(self):
+		self.send("END OF TRANSMISSION")
+
+		self.socket.close()
+
+class IncomingConnection(PeerConnection):
+	def __init__(self, socket: socket.socket, info: PeerInfo) -> None:
+		PeerConnection.__init__(self, socket, info)
 	
+class OutgoingConnection(PeerConnection):
+	def __init__(self, info: PeerInfo) -> None:
+		self.info: PeerInfo = info
+
+		self.socket: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.socket.connect(self.info.address)
+
 class Peer:
 	"""Represents a peer on the peer to peer network."""
 	alive: bool = True
@@ -52,12 +80,13 @@ class Peer:
 
 		info = PeerInfo(addr=addr)
 
-		connection = PeerConnection(sock, info)
+		connection = IncomingConnection(sock, info)
 
 		t = Thread(target = self.handle_connection, args = [connection])
 
-	def handle_connection(self, connection: PeerConnection) -> None:
-		pass
+	def handle_connection(self, connection: IncomingConnection) -> None:
+		command, data = connection.recv()
+		
 	
 	def kill(self) -> None:
 		self.listen_sock.close()
