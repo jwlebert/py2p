@@ -1,8 +1,9 @@
 name: autotest
 
 on:
-  push:
-    branches: [ "main" ]
+#   push:
+#     branches: [ "main" ]
+#   ^ Not needed because direct pushes are prohibited by rulesets
   pull_request:
     branches: [ "main" ]
 
