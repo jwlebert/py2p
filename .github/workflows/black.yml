@@ -10,5 +10,5 @@ jobs:
       - uses: psf/black@stable
         with:
             options: "--check --verbose"
-            src: "./src ./test"
+            src: "./py2p ./test"
             version: "~= 23.9.1"
