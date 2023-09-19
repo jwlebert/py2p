@@ -31,9 +31,6 @@ class PeerInfo:
                 self.port == other.port and \
                 self.address == other.address
         return NotImplemented
-    
-    # def __hash__(self) -> int:
-    #     return hash((self.host, self.port, self.address))
 
     
 class PeerConnection:
@@ -57,7 +54,6 @@ class IncomingConnection(PeerConnection):
         try:
             instruction = self.data.read(4).decode("utf-8")
             if not instruction: raise ValueError("No instruction")
-            # check the type of message being sent (identifier)
 
             data = self.data.read(4)
             msg_len = struct.unpack("!I", data)[0]
@@ -75,22 +71,22 @@ class IncomingConnection(PeerConnection):
             if len(data) != msg_len:
                 raise Exception("length of data received is not same as supposed message length")
             
-            len_bytes = self.data.read(4)
-            host_len = struct.unpack("!I", len_bytes)[0]
-            if host_len != 0:
+            host_len = struct.unpack("!I", self.data.read(4))[0]
+            if host_len:
                 host = self.data.read(host_len).decode('utf-8')
-                port_bytes = self.data.read(4)
-                port = struct.unpack("!I", port_bytes)[0]
+                port = struct.unpack("!I", self.data.read(4))[0]
 
             if (host, port) != ('NO_RET_ADDR', 0):
                 self.info = PeerInfo(host=host, port=port)
             else:
-                print("NO RETURN ADDRESS")
+                raise Exception("NO RETURN ADDRESS")
 
         except Exception as e:
             print(e)
+            self.close()
             return None
         
+        self.close()
         return (instruction, data)
     
 class OutgoingConnection(PeerConnection):
@@ -122,19 +118,22 @@ class OutgoingConnection(PeerConnection):
             #           the '%' after the format (in this case, len(msg))
             
             self.data.write(data)
+            self.close()
             return True
         except Exception as e:
             print(e)
+            self.close()
             return False
 
 class Peer:
     """Represents a peer on the peer to peer network."""
     alive: bool = True
     listen_sock: socket.socket = None
-    transmissions: List[Tuple[PeerInfo, str, str]] = []
+    transmissions: List[Tuple[PeerConnection, PeerInfo, str, str]]
 
     def __init__(self, info: PeerInfo = None) -> None:
         self.info: PeerInfo = info if info is not None else PeerInfo()
+        self.transmissions = []
         self.info.owner = self;
         self.start_listener()
 
@@ -164,13 +163,17 @@ class Peer:
 
         # do stuff
 
-        print((connection.info, *recv))
-
-        self.transmissions.append((connection.info, *recv))
+        self.transmissions.append((IncomingConnection, connection.info, *recv))
 
     def send_data(self, target: PeerInfo, data, instruction = 'READ') -> bool:
-        connection = OutgoingConnection(target)
-        return connection.send(data, instruction = instruction, ret_addr = self.info.address)
+        try:
+            connection = OutgoingConnection(target)
+            if connection.send(data, instruction = instruction, ret_addr = self.info.address):
+                self.transmissions.append((OutgoingConnection, target, instruction, data))
+                return True
+        except Exception as e:
+            print(e)
+            return False
     
     def kill(self) -> None:
         self.listener.close()
